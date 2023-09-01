@@ -11,60 +11,79 @@ expression
     | assign
     | compare
     | operation
-    | condition
     | expression condition+
     | loop
     | special
     ;
 
-// move the operators over here so they dont create additional node in AST
 assign
-    : SYMBOL op_assign expression
+    : symbol OP_ASSIGN expression
+    | symbol OP_ADD_INPLACE expression
+    | symbol OP_SUB_INPLACE expression
+    | symbol OP_POW_INPLACE expression
+    | symbol OP_MUL_INPLACE expression
+    | symbol OP_TYPE_INPLACE expression
+    | symbol OP_MOD_INPLACE expression
+    | symbol OP_DIV_INPLACE expression
     ;
 
 compare
-    : value op_compare value
+    : value OP_EQ value
+    | value OP_NOT_EQ value
+    | value OP_LOOSE_EQ value
+    | value OP_LESS_THAN value
+    | value OP_LESS_THAN_EQ value
+    | value OP_MORE_THAN value
+    | value OP_MORE_THAN_EQ value
+    | value OP_TYPE_EQ value
     ;
 
 operation
-    : value op value
+    : value OP_EQ value
+    | value OP_ADD value
+    | value OP_POW value
+    | value OP_MUL value
+    | value OP_MOD value
+    | value OP_DIV value
     ;
 
 condition
-    : '?' '{' '}'
-    | '?' '{' module '}'
-    | '||' '{' '}'
-    | '||' '{' module '}'
+    : '?' '{' module? '}'
+    | '||' '{' module? '}'
     ;
 
 value
-    : op_prefix* SYMBOL
+    : function_def
     | op_prefix* function_call
+    | op_prefix* symbol
+    | op_prefix* compound_symbol
+    | op_prefix* '(' expression? ')'
+    | op_prefix* '{' module? '}'
     | FLOAT
     | INT
     | STRING
     | list
     | tuple
     | hashmap
-    | function
-    | op_prefix* '(' expression ')'
+    | enum
     ;
 
 function_call
-    : SYMBOL '(' ')'
-    | SYMBOL '(' (value (',' value)*)? ')'
+    : (symbol | compound_symbol) '(' (value (',' value)* ','?)? ')'
     ;
 
-// TODO function arguments
-function
-    : '(' ')' '{' module? '}'
+function_def
+    : '('
+        (
+            symbol ('=' value)? (',' symbol ('=' value)?)* ','?
+        )?
+    ')' '{' module? '}'
     ;
 
 loop
     : value? '->' value? '{' module? '}'
     ;
 
-// TODO these dont accept newlines as breaks
 list
     : '[' ']'
     | '[' value (',' value)* ','? ']'
@@ -76,13 +95,31 @@ tuple
     ;
 
 hashmap
-    : '[#]'
+    : '[' '=' ']'
     | '[' value '=' value (';' value '=' value)* ';'? ']'
     ;
 
-OP_CLASS: '@';
-OP_TYPE: '%';
-OP_NOT: '!';
+enum
+    : OP_CLASS '['
+        (
+            ID (',' ID)* ','?
+        )?
+    ']'
+    ;
+
+// basically x.y.z
+compound_symbol
+    : ('.' | SYS_PREFIX)? ID ('.' ID)+
+    ;
+
+// $x, .x, x are different symbols
+symbol
+    : ('.' | SYS_PREFIX)? ID
+    ;
+
+special
+    : RETURN expression?
+    ;
 
 op_prefix
     : OP_CLASS
@@ -90,25 +127,18 @@ op_prefix
     | OP_NOT
     ;
 
-OP_EQ:             '==' ;
-OP_NOT_EQ:         '!=' ;
-OP_LOOSE_EQ:       '~=' ;
-OP_LESS_THAN:      '<'  ;
-OP_LESS_THAN_EQ:   '<=' ;
-OP_MORE_THAN:      '>'  ;
-OP_MORE_THAN_EQ:   '>=' ;
-OP_TYPE_EQ:        '%==';
+OP_CLASS: '@' ;
+OP_TYPE:  '%' ;
+OP_NOT:   '!' ;
 
-op_compare
-    : OP_EQ
-    | OP_NOT_EQ
-    | OP_LOOSE_EQ
-    | OP_LESS_THAN
-    | OP_LESS_THAN_EQ
-    | OP_MORE_THAN
-    | OP_MORE_THAN_EQ
-    | OP_TYPE_EQ
-    ;
+OP_EQ:             '=='  ;
+OP_NOT_EQ:         '!='  ;
+OP_LOOSE_EQ:       '~='  ;
+OP_LESS_THAN:      '<'   ;
+OP_LESS_THAN_EQ:   '<='  ;
+OP_MORE_THAN:      '>'   ;
+OP_MORE_THAN_EQ:   '>='  ;
+OP_TYPE_EQ:        '%==' ;
 
 OP_ADD: '+'  ;
 OP_SUB: '-'  ;
@@ -117,48 +147,23 @@ OP_MUL: '*'  ;
 OP_MOD: '//' ;
 OP_DIV: '/'  ;
 
-op
-    : OP_EQ
-    | OP_ADD
-    | OP_POW
-    | OP_MUL
-    | OP_MOD
-    | OP_DIV
-    ;
+OP_ASSIGN:         '='   ;
+OP_ADD_INPLACE:    '+='  ;
+OP_SUB_INPLACE:    '-='  ;
+OP_POW_INPLACE:    '**=' ;
+OP_MUL_INPLACE:    '*='  ;
+OP_TYPE_INPLACE:   '%='  ;
+OP_MOD_INPLACE:    '//=' ;
+OP_DIV_INPLACE:    '/='  ;
 
-OP_ASSIGN:         '='     ;
-OP_ADD_INPLACE:    '+='    ;
-OP_SUB_INPLACE:    '-='    ;
-OP_POW_INPLACE:    '**='   ;
-OP_MUL_INPLACE:    '*='    ;
-OP_TYPE_INPLACE:   '%='    ;
-OP_MOD_INPLACE:    '//='   ;
-OP_DIV_INPLACE:    '/='    ;
+RETURN: '<>' ;
 
-op_assign
-    : OP_ASSIGN
-    | OP_ADD_INPLACE
-    | OP_SUB_INPLACE
-    | OP_POW_INPLACE
-    | OP_MUL_INPLACE
-    | OP_TYPE_INPLACE
-    | OP_MOD_INPLACE
-    | OP_DIV_INPLACE
-    ;
-
-LOOP_BREAK: '<>' ;
-
-special
-    : LOOP_BREAK
-    ;
-
-fragment ID: [a-zA-Z_][a-zA-Z_0-9]* ;
-SYMBOL: ('.' | '$')? ID ('.' ID)* ;
-
-STRING: '$'? '\'' (~'\'')* '\'' ;
-
+ID: [a-zA-Z_][a-zA-Z_0-9]* ;
+STRING: SYS_PREFIX? '\'' (~'\'')* '\'' ;
 FLOAT: INT '.' INT ;
 INT: [0-9_]+ ;
+
+SYS_PREFIX: '$' ;
 
 NL: [\r\n]+ -> skip ;
 WHITESPACE: [ \t]+ -> skip ;
@@ -166,3 +171,4 @@ WHITESPACE: [ \t]+ -> skip ;
 COMMENT: ('/*' .*? '*/') -> channel(HIDDEN) ;
 
 // vim: set commentstring=//%s :
+
