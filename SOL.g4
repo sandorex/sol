@@ -3,7 +3,8 @@ grammar SOL ;
 program: module EOF ;
 
 module
-    : expression ((';' | NL)* expression)* (';' | NL)*
+    : expression (';' | NL)?
+    | expression ((';' | NL) expression)+ (';' | NL)?
     ;
 
 expression
@@ -17,14 +18,13 @@ expression
     ;
 
 assign
-    : symbol OP_ASSIGN expression
-    | symbol OP_ADD_INPLACE expression
-    | symbol OP_SUB_INPLACE expression
-    | symbol OP_POW_INPLACE expression
-    | symbol OP_MUL_INPLACE expression
-    | symbol OP_TYPE_INPLACE expression
-    | symbol OP_MOD_INPLACE expression
-    | symbol OP_DIV_INPLACE expression
+    : (compound_symbol | symbol) OP_ASSIGN expression
+    | (compound_symbol | symbol) OP_INPLACE_ADD expression
+    | (compound_symbol | symbol) OP_INPLACE_SUB expression
+    | (compound_symbol | symbol) OP_INPLACE_POW expression
+    | (compound_symbol | symbol) OP_INPLACE_MUL expression
+    | (compound_symbol | symbol) OP_INPLACE_MOD expression
+    | (compound_symbol | symbol) OP_INPLACE_DIV expression
     ;
 
 compare
@@ -55,13 +55,13 @@ condition
 value
     : function_def
     | op_prefix* function_call
-    | op_prefix* symbol
     | op_prefix* compound_symbol
+    | op_prefix* symbol
     | op_prefix* '(' expression? ')'
     | op_prefix* '{' module? '}'
-    | FLOAT
-    | INT
-    | STRING
+    | float
+    | integer
+    | string
     | list
     | tuple
     | hashmap
@@ -69,7 +69,7 @@ value
     ;
 
 function_call
-    : (symbol | compound_symbol) '(' (value (',' value)* ','?)? ')'
+    : (compound_symbol | symbol) '(' (value (',' value)* ','?)? ')'
     ;
 
 function_def
@@ -107,7 +107,18 @@ enum
     ']'
     ;
 
-// basically x.y.z
+string
+    : STR
+    ;
+
+integer
+    : INT
+    ;
+
+float
+    : FLOAT
+    ;
+
 compound_symbol
     : ('.' | SYS_PREFIX)? ID ('.' ID)+
     ;
@@ -116,6 +127,10 @@ compound_symbol
 symbol
     : ('.' | SYS_PREFIX)? ID
     ;
+
+// sys_symbol
+//     : SYS_PREFIX symbol
+//     ;
 
 special
     : RETURN expression?
@@ -148,26 +163,44 @@ OP_MOD: '//' ;
 OP_DIV: '/'  ;
 
 OP_ASSIGN:         '='   ;
-OP_ADD_INPLACE:    '+='  ;
-OP_SUB_INPLACE:    '-='  ;
-OP_POW_INPLACE:    '**=' ;
-OP_MUL_INPLACE:    '*='  ;
-OP_TYPE_INPLACE:   '%='  ;
-OP_MOD_INPLACE:    '//=' ;
-OP_DIV_INPLACE:    '/='  ;
+OP_INPLACE_ADD:    '+='  ;
+OP_INPLACE_SUB:    '-='  ;
+OP_INPLACE_POW:    '**=' ;
+OP_INPLACE_MUL:    '*='  ;
+OP_INPLACE_MOD:    '//=' ;
+OP_INPLACE_DIV:    '/='  ;
 
 RETURN: '<>' ;
 
+OP_LOOP: '->' ;
+OP_IF: '?' ;
+OP_ELSE: '||' ;
+
+PBEG: '(' ;
+PEND: ')' ;
+SBEG: '[' ;
+SEND: ']' ;
+BBEG: '{' ;
+BEND: '}' ;
+
+EXPR_BREAK: ';' ;
+DOT: '.' ;
+COMMA: ',' ;
+
 ID: [a-zA-Z_][a-zA-Z_0-9]* ;
-STRING: SYS_PREFIX? '\'' (~'\'')* '\'' ;
+STR: SYS_PREFIX? '\'' (~'\'')* '\'' ;
+
 FLOAT: INT '.' INT ;
-INT: [0-9_]+ ;
+INT
+    : '0b' [01]+
+    | '0x' [0-9ABCDEFabcdef]+
+    | [0-9_]+
+    ;
 
 SYS_PREFIX: '$' ;
 
 NL: [\r\n]+ -> skip ;
 WHITESPACE: [ \t]+ -> skip ;
-
 COMMENT: ('/*' .*? '*/') -> channel(HIDDEN) ;
 
 // vim: set commentstring=//%s :
