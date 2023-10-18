@@ -51,20 +51,55 @@ class ConverterVisitor(SOLVisitor):
         # TODO add custom error in case there is something wrong with operators
         return None
 
+    def visitCompare(self, ctx):
+        left = self.visit(ctx.getChild(0))
+        right = self.visit(ctx.getChild(2))
+
+        match ctx.getChild(1).getSymbol().type:
+            case SOLParser.OP_EQ:
+                return ast.Compare(left=left, ops=[ast.Eq()], comparators=[right])
+
+            case SOLParser.OP_NOT_EQ:
+                return ast.Compare(left=left, ops=[ast.NotEq()], comparators=[right])
+
+            case SOLParser.OP_LOOSE_EQ:
+                raise NotImplementedError("loose equal is not implemented")
+
+            case SOLParser.OP_LESS_THAN:
+                return ast.Compare(left=left, ops=[ast.Lt()], comparators=[right])
+
+            case SOLParser.OP_LESS_THAN_EQ:
+                return ast.Compare(left=left, ops=[ast.LtE()], comparators=[right])
+
+            case SOLParser.OP_MORE_THAN:
+                return ast.Compare(left=left, ops=[ast.Gt()], comparators=[right])
+
+            case SOLParser.OP_MORE_THAN_EQ:
+                return ast.Compare(left=left, ops=[ast.GtE()], comparators=[right])
+
+            case SOLParser.OP_TYPE_EQ:
+                return ast.Compare(
+                    left=ast.Call(func=ast.Name(id="type", ctx=ast.Load()), args=[left]),
+                    ops=[ast.Eq()],
+                    comparators=[ast.Call(func=ast.Name(id="type", ctx=ast.Load()), args=[right])]
+                )
+
+        return None
+
     def visitString(self, ctx):
         # TODO parse the string if it is prefixed by an $
         raw = ctx.getText()
-        if raw.startswith('$'):
-            raise NotImplementedError('Evaluated strings are not implemented yet')
+        if raw.startswith("$"):
+            raise NotImplementedError("Evaluated strings are not implemented yet")
 
         return ast.Constant(value=raw)
 
     def visitInteger(self, ctx):
         # TODO error handling
-        raw = ctx.getText().replace('_', '')
-        if raw.startswith('0b'):
+        raw = ctx.getText().replace("_", "")
+        if raw.startswith("0b"):
             return ast.Constant(value=int(raw, base=2))
-        elif raw.startswith('0x'):
+        elif raw.startswith("0x"):
             return ast.Constant(value=int(raw, base=16))
         else:
             return ast.Constant(value=int(raw))

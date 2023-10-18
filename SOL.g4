@@ -128,10 +128,6 @@ symbol
     : ('.' | SYS_PREFIX)? ID
     ;
 
-// sys_symbol
-//     : SYS_PREFIX symbol
-//     ;
-
 special
     : RETURN expression?
     ;
